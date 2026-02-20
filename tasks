@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -e
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+PORT="${PORT:-3777}"
+URL="http://localhost:$PORT"
+PID_FILE="$DIR/.server.pid"
+
+cleanup() {
+  if [ -f "$PID_FILE" ]; then
+    kill "$(cat "$PID_FILE")" 2>/dev/null || true
+    rm -f "$PID_FILE"
+  fi
+}
+
+trap cleanup EXIT INT TERM
+
+if command -v node &>/dev/null; then :; else
+  echo "Error: Node.js is required. Install it first."
+  exit 1
+fi
+
+if curl -s -o /dev/null "$URL" 2>/dev/null; then
+  echo "Server already running at $URL"
+else
+  node "$DIR/serve.cjs" &
+  echo $! > "$PID_FILE"
+  for i in $(seq 1 20); do
+    if curl -s -o /dev/null "$URL" 2>/dev/null; then
+      break
+    fi
+    sleep 0.25
+  done
+fi
+
+echo "Opening $URL ..."
+if command -v xdg-open &>/dev/null; then
+  xdg-open "$URL" &>/dev/null &
+elif command -v open &>/dev/null; then
+  open "$URL" &>/dev/null &
+else
+  echo "Open $URL in your browser"
+fi
+
+echo "Task Control running. Press Ctrl+C to stop."
+wait
