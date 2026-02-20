@@ -649,8 +649,8 @@ function renderReport() {
   data.forEach((section, ci) => {
     output += `${ci + 1}. ${section.client}\n`;
     section.tasks.forEach((t, ti) => {
-      output += `    ${letters[ti] || '?'}. ${t.title}\n`;
-      let statusLine = `        i. Status: ${t.detail}`;
+      output += `    ${letters[ti] || '?'}. [${t.status}] ${t.title}\n`;
+      let statusLine = `        i. ${t.detail}`;
       if (t.doneAt) statusLine += ` (done ${fmtDate(t.doneAt)})`;
       output += statusLine + '\n\n';
     });
