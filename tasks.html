@@ -159,6 +159,16 @@
   .badge.blocked { background: rgba(248,81,73,0.15); color: var(--blocked); }
   .badge.doing { background: rgba(163,113,247,0.15); color: var(--doing); }
   .badge.watching { background: rgba(121,192,255,0.15); color: var(--watch); }
+  .badge.deleted { background: rgba(248,81,73,0.25); color: #f85149; }
+
+  .task-item[data-status="deleted"] {
+    opacity: 0.4;
+    border-left: 3px solid #f85149;
+  }
+
+  .task-item[data-status="deleted"] .task-title {
+    text-decoration: line-through;
+  }
 
   .task-content { min-width: 0; }
   .task-title { font-weight: 500; cursor: text; }
@@ -350,6 +360,9 @@
 
   .filter-btn:hover { border-color: var(--accent); color: var(--text); }
   .filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(88,166,255,0.08); }
+  .filter-btn[data-filter="deleted"] { color: #f85149; border-color: rgba(248,81,73,0.3); }
+  .filter-btn[data-filter="deleted"]:hover { border-color: #f85149; }
+  .filter-btn[data-filter="deleted"].active { border-color: #f85149; color: #f85149; background: rgba(248,81,73,0.1); }
 
   .sync-indicator {
     text-align: center;
@@ -383,6 +396,7 @@
   <button class="filter-btn" data-filter="blocked">Blocked</button>
   <button class="filter-btn" data-filter="watching">Watching</button>
   <button class="filter-btn" data-filter="done">Done</button>
+  <button class="filter-btn" data-filter="deleted">Deleted</button>
 </div>
 
 <div id="app"></div>
@@ -502,11 +516,12 @@ function render() {
 
   data.forEach((section, ci) => {
     const filtered = activeFilter === 'all'
-      ? section.tasks
+      ? section.tasks.filter(t => t.status !== 'DELETED')
       : section.tasks.filter(t => statusClass(t.status) === activeFilter);
 
-    const total = section.tasks.length;
-    const pending = section.tasks.filter(t => t.status !== 'DONE').length;
+    const active = section.tasks.filter(t => t.status !== 'DELETED');
+    const total = active.length;
+    const pending = active.filter(t => t.status !== 'DONE').length;
 
     const sec = document.createElement('div');
     sec.className = 'client-section';
@@ -533,9 +548,11 @@ function render() {
               <div class="task-dates">
                 ${t.createdAt ? `<span>created: ${fmtDate(t.createdAt)}</span>` : ''}
                 ${t.doneAt ? `<span class="date-done">done: ${fmtDate(t.doneAt)}</span>` : ''}
+                ${t.deletedAt ? `<span style="color:#f85149;background:rgba(248,81,73,0.08)">deleted: ${fmtDate(t.deletedAt)}</span>` : ''}
               </div>
             </div>
             <div class="task-actions">
+              ${t.status === 'DELETED' ? `<button class="btn-icon" style="color:var(--done)" onclick="restoreTask(${ci}, ${realIdx})" title="Restore">&#8629;</button>` : ''}
               <button class="btn-icon" onclick="removeTask(${ci}, ${realIdx})" title="Remove">&times;</button>
             </div>
           </div>`;
@@ -627,7 +644,21 @@ function addTask(ci) {
 }
 
 function removeTask(ci, ti) {
-  data[ci].tasks.splice(ti, 1);
+  if (data[ci].tasks[ti].status === 'DELETED') {
+    if (confirm('Permanently remove this task?')) {
+      data[ci].tasks.splice(ti, 1);
+    } else return;
+  } else {
+    data[ci].tasks[ti].status = 'DELETED';
+    data[ci].tasks[ti].deletedAt = today();
+  }
+  save();
+  render();
+}
+
+function restoreTask(ci, ti) {
+  data[ci].tasks[ti].status = 'PENDING';
+  data[ci].tasks[ti].deletedAt = null;
   save();
   render();
 }
@@ -647,8 +678,10 @@ function renderReport() {
   let output = '';
 
   data.forEach((section, ci) => {
+    const activeTasks = section.tasks.filter(t => t.status !== 'DELETED');
+    if (!activeTasks.length) return;
     output += `${ci + 1}. ${section.client}\n`;
-    section.tasks.forEach((t, ti) => {
+    activeTasks.forEach((t, ti) => {
       output += `    ${letters[ti] || '?'}. [${t.status}] ${t.title}\n`;
       let statusLine = `        i. ${t.detail}`;
       if (t.doneAt) statusLine += ` (done ${fmtDate(t.doneAt)})`;
@@ -681,6 +714,13 @@ document.getElementById('filterBar').addEventListener('click', e => {
     e.target.classList.add('active');
     activeFilter = e.target.dataset.filter;
     render();
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.isContentEditable) {
+    e.preventDefault();
+    e.target.blur();
   }
 });
 
