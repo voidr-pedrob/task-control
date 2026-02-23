@@ -5,10 +5,12 @@ const path = require('path');
 const PORT = process.env.PORT || 3777;
 const DIR = __dirname;
 const DATA_FILE = path.join(DIR, 'context.json');
-const HTML_FILE = path.join(DIR, 'tasks.html');
+const APP_DIR = path.join(DIR, 'app');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
 };
 
@@ -55,19 +57,23 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (req.url === '/' || req.url === '/index.html') {
-    try {
-      const html = fs.readFileSync(HTML_FILE, 'utf-8');
-      res.writeHead(200, { 'Content-Type': MIME['.html'] });
-      return res.end(html);
-    } catch {
-      res.writeHead(404);
-      return res.end('tasks.html not found');
-    }
+  const urlPath = req.url === '/' ? '/index.html' : req.url;
+  const filePath = path.join(APP_DIR, urlPath);
+
+  if (!filePath.startsWith(APP_DIR)) {
+    res.writeHead(403);
+    return res.end('Forbidden');
   }
 
-  res.writeHead(404);
-  res.end('Not found');
+  try {
+    const content = fs.readFileSync(filePath);
+    const ext = path.extname(filePath);
+    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+    return res.end(content);
+  } catch {
+    res.writeHead(404);
+    return res.end('Not found');
+  }
 });
 
 server.listen(PORT, () => {

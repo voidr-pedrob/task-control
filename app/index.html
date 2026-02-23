@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voidr - Task Control</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h1>Voidr - Task Control</h1>
+<p class="subtitle">Source of truth</p>
+
+<div class="filter-bar" id="filterBar">
+  <button class="filter-btn active" data-filter="all">All</button>
+  <button class="filter-btn" data-filter="pending">Pending</button>
+  <button class="filter-btn" data-filter="doing">Doing</button>
+  <button class="filter-btn" data-filter="blocked">Blocked</button>
+  <button class="filter-btn" data-filter="watching">Watching</button>
+  <button class="filter-btn" data-filter="done">Done</button>
+  <button class="filter-btn" data-filter="deleted">Deleted</button>
+</div>
+
+<div class="sort-bar" id="sortBar">
+  <span class="sort-label">Sort:</span>
+  <button class="sort-btn active" data-sort="default">Default</button>
+  <button class="sort-btn" data-sort="priority">Priority</button>
+  <button class="sort-btn" data-sort="weight">Weight</button>
+  <button class="sort-btn" data-sort="status">Status</button>
+</div>
+
+<div id="app"></div>
+
+<div class="add-client-bar">
+  <input type="text" id="newClientInput" placeholder="New client name...">
+  <button onclick="addClient()">+ Client</button>
+</div>
+
+<div class="settings-section collapsed" id="settingsSection">
+  <div class="settings-header" onclick="document.getElementById('settingsSection').classList.toggle('collapsed')">
+    <h2>Settings</h2>
+    <span class="chevron">&#9660;</span>
+  </div>
+  <div class="settings-body" id="settingsBody"></div>
+</div>
+
+<div class="report-section">
+  <div class="report-header">
+    <h2>Daily Report</h2>
+    <button class="btn-copy" id="btnCopy" onclick="copyReport()">Copy</button>
+  </div>
+  <div class="report-body" id="reportOutput"></div>
+</div>
+
+<div class="sync-indicator" id="syncIndicator"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

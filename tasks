@@ -23,7 +23,7 @@ fi
 if curl -s -o /dev/null "$URL" 2>/dev/null; then
   echo "Server already running at $URL"
 else
-  node "$DIR/serve.cjs" &
+  node "$DIR/server.cjs" &
   echo $! > "$PID_FILE"
   for i in $(seq 1 20); do
     if curl -s -o /dev/null "$URL" 2>/dev/null; then
