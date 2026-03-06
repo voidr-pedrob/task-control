@@ -3,19 +3,28 @@
 const STATUSES = ['DONE', 'PENDING', 'BLOCKED', 'DOING', 'WATCHING'];
 const DEFAULT_WEIGHTS = ['Trivial', 'Easy', 'Medium', 'Hard', 'Complex'];
 const DEFAULT_PRIORITIES = ['P0', 'P1', 'P2', 'P3', 'P4'];
+const DEFAULT_WEIGHT_ESTIMATES = ['30min', '1h', '2h', '4h', '1d'];
 
 /* ── State ───────────────────────────────────────────── */
 
 let useApi = false;
 let data = [];
-let settings = { weights: [...DEFAULT_WEIGHTS], priorities: [...DEFAULT_PRIORITIES] };
+let settings = {
+  weights: [...DEFAULT_WEIGHTS],
+  priorities: [...DEFAULT_PRIORITIES],
+  weightEstimates: [...DEFAULT_WEIGHT_ESTIMATES],
+};
 let activeFilter = 'all';
 let activeSort = 'default';
 
 /* ── Helpers ─────────────────────────────────────────── */
 
 function defaultSettings() {
-  return { weights: [...DEFAULT_WEIGHTS], priorities: [...DEFAULT_PRIORITIES] };
+  return {
+    weights: [...DEFAULT_WEIGHTS],
+    priorities: [...DEFAULT_PRIORITIES],
+    weightEstimates: [...DEFAULT_WEIGHT_ESTIMATES],
+  };
 }
 
 function getWeightColor(label) {
@@ -61,6 +70,8 @@ function migrateData(arr) {
       if (t.doneAt === undefined) t.doneAt = t.status === 'DONE' ? today() : null;
       if (t.weight === undefined) t.weight = null;
       if (t.priority === undefined) t.priority = null;
+      if (t.dueDate === undefined) t.dueDate = null;
+      if (t.estimate === undefined) t.estimate = null;
     });
   });
   return arr;
@@ -75,6 +86,10 @@ function unwrapPayload(raw) {
     if (!raw.settings) raw.settings = ds;
     if (!raw.settings.weights || !raw.settings.weights.length) raw.settings.weights = ds.weights;
     if (!raw.settings.priorities || !raw.settings.priorities.length) raw.settings.priorities = ds.priorities;
+    if (!raw.settings.weightEstimates || raw.settings.weightEstimates.length !== raw.settings.weights.length) {
+      raw.settings.weightEstimates = raw.settings.weights.map((_, i) =>
+        (raw.settings.weightEstimates && raw.settings.weightEstimates[i]) || (ds.weightEstimates[i] ?? ''));
+    }
     raw.clients = migrateData(raw.clients);
     return raw;
   }
@@ -218,6 +233,12 @@ function render() {
                 ${t.doneAt ? `<span class="date-done">done: ${fmtDate(t.doneAt)}</span>` : ''}
                 ${t.deletedAt ? `<span style="color:#f85149;background:rgba(248,81,73,0.08)">deleted: ${fmtDate(t.deletedAt)}</span>` : ''}
               </div>
+              <div class="task-meta">
+                <span class="task-meta-label">Prazo</span>
+                <input type="date" class="task-due-input" value="${t.dueDate || ''}" placeholder="—" data-ci="${ci}" data-ti="${realIdx}" onchange="updateDueDateFromInput(this)" title="Data limite" />
+                <span class="task-meta-label">Expectativa</span>
+                <input type="text" class="task-estimate-input" value="${t.estimate || ''}" placeholder="ex: 1h, 2h" data-ci="${ci}" data-ti="${realIdx}" onchange="updateEstimateFromInput(this)" title="Expectativa (vinculada ao peso)" />
+              </div>
             </div>
             <div class="task-actions">
               ${t.status === 'DELETED' ? `<button class="btn-icon" style="color:var(--done)" onclick="restoreTask(${ci}, ${realIdx})" title="Restore">&#8629;</button>` : ''}
@@ -286,8 +307,26 @@ function updateDetail(ci, ti, el) {
   renderReport();
 }
 
+function updateDueDateFromInput(input) {
+  const ci = parseInt(input.dataset.ci, 10);
+  const ti = parseInt(input.dataset.ti, 10);
+  const val = input.value.trim() || null;
+  data[ci].tasks[ti].dueDate = val;
+  save();
+  renderReport();
+}
+
+function updateEstimateFromInput(input) {
+  const ci = parseInt(input.dataset.ci, 10);
+  const ti = parseInt(input.dataset.ti, 10);
+  const val = input.value.trim() || null;
+  data[ci].tasks[ti].estimate = val;
+  save();
+  renderReport();
+}
+
 function addTask(ci) {
-  data[ci].tasks.push({ title: 'New task', status: 'PENDING', detail: 'Describe status here...', createdAt: today(), doneAt: null, weight: null, priority: null });
+  data[ci].tasks.push({ title: 'New task', status: 'PENDING', detail: 'Describe status here...', createdAt: today(), doneAt: null, weight: null, priority: null, dueDate: null, estimate: null });
   save();
   render();
 }
@@ -371,9 +410,20 @@ function cycleWeight(ci, ti, event) {
   event.stopPropagation();
   const opts = [
     { html: '<span style="color:var(--text-muted);font-size:0.8rem">\u2014 None</span>', action: () => { data[ci].tasks[ti].weight = null; save(); render(); } },
-    ...settings.weights.map(w => {
+    ...settings.weights.map((w, wi) => {
       const wc = getWeightColor(w);
-      return { html: `<span class="weight-badge" style="color:${wc.color};background:${wc.bg};pointer-events:none">${w}</span>`, action: () => { data[ci].tasks[ti].weight = w; save(); render(); } };
+      const defaultEst = (settings.weightEstimates && settings.weightEstimates[wi]) ? ` \u00b7 ${settings.weightEstimates[wi]}` : '';
+      return {
+        html: `<span class="weight-badge" style="color:${wc.color};background:${wc.bg};pointer-events:none">${w}${defaultEst}</span>`,
+        action: () => {
+          data[ci].tasks[ti].weight = w;
+          if (settings.weightEstimates && settings.weightEstimates[wi] && !data[ci].tasks[ti].estimate) {
+            data[ci].tasks[ti].estimate = settings.weightEstimates[wi];
+          }
+          save();
+          render();
+        },
+      };
     })
   ];
   openDropdown(event, opts);
@@ -404,7 +454,9 @@ function renderReport() {
     activeTasks.forEach((t, ti) => {
       const priorityStr = t.priority ? ` [${t.priority}]` : '';
       const weightStr = t.weight ? ` (${t.weight})` : '';
-      output += `    ${letters[ti] || '?'}. [${t.status}]${priorityStr} ${t.title}${weightStr}\n`;
+      const dueStr = t.dueDate ? ` prazo ${fmtDate(t.dueDate)}` : '';
+      const estStr = t.estimate ? ` ~${t.estimate}` : '';
+      output += `    ${letters[ti] || '?'}. [${t.status}]${priorityStr} ${t.title}${weightStr}${estStr}${dueStr}\n`;
       let statusLine = `        i. ${t.detail}`;
       if (t.doneAt) statusLine += ` (done ${fmtDate(t.doneAt)})`;
       output += statusLine + '\n\n';
@@ -448,14 +500,16 @@ function renderSettings() {
       }).join('')}
     </div>
     <button class="btn-add-weight" onclick="addPriority()">+ Add priority level</button>
-    <div class="settings-group-title">Weight Levels</div>
+    <div class="settings-group-title">Weight Levels (expectativa padrão por dificuldade)</div>
     <div class="weight-config-list">
       ${settings.weights.map((w, i) => {
         const wc = getWeightColor(w);
+        const est = (settings.weightEstimates && settings.weightEstimates[i]) ? settings.weightEstimates[i] : '';
         return `
-        <div class="weight-config-item">
+        <div class="weight-config-item weight-config-row">
           <span class="weight-preview" style="color:${wc.color};background:${wc.bg}">${i + 1}</span>
-          <input type="text" value="${w}" onchange="renameWeight(${i}, this.value)" />
+          <input type="text" value="${w}" onchange="renameWeight(${i}, this.value)" placeholder="Nome" />
+          <input type="text" value="${est}" onchange="updateWeightEstimate(${i}, this.value)" placeholder="ex: 1h, 2h" class="weight-estimate-input" title="Expectativa padrão" />
           <button class="btn-remove-weight" onclick="removeWeight(${i})" title="Remove">&times;</button>
         </div>`;
       }).join('')}
@@ -477,12 +531,22 @@ function removeWeight(idx) {
   const removed = settings.weights[idx];
   data.forEach(s => s.tasks.forEach(t => { if (t.weight === removed) t.weight = null; }));
   settings.weights.splice(idx, 1);
+  if (settings.weightEstimates) settings.weightEstimates.splice(idx, 1);
   save(); renderSettings(); render();
 }
 
 function addWeight() {
   settings.weights.push('New level');
+  if (!settings.weightEstimates) settings.weightEstimates = [];
+  settings.weightEstimates.push('');
   save(); renderSettings();
+}
+
+function updateWeightEstimate(idx, value) {
+  if (!settings.weightEstimates) settings.weightEstimates = settings.weights.map(() => '');
+  settings.weightEstimates[idx] = value.trim();
+  save();
+  renderSettings();
 }
 
 function renamePriority(idx, newName) {

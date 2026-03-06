@@ -203,6 +203,44 @@ h1 { font-size: 1.6rem; margin-bottom: 4px; }
 
 .task-dates .date-done { color: var(--done); background: rgba(63,185,80,0.08); }
 
+/* ── Prazo & Expectativa ─────────────────────────────── */
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.task-meta-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.task-due-input,
+.task-estimate-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  max-width: 120px;
+}
+
+.task-due-input:focus,
+.task-estimate-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.task-estimate-input {
+  max-width: 80px;
+}
+
 .task-actions { opacity: 0; transition: opacity 0.15s; }
 .task-item:hover .task-actions { opacity: 1; }
 
@@ -524,6 +562,11 @@ h1 { font-size: 1.6rem; margin-bottom: 4px; }
 .weight-config-item input:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.weight-config-item.weight-config-row .weight-estimate-input {
+  max-width: 90px;
+  flex: 0 0 90px;
 }
 
 .weight-config-item .btn-remove-weight {
