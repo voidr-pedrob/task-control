@@ -241,6 +241,95 @@ h1 { font-size: 1.6rem; margin-bottom: 4px; }
   max-width: 80px;
 }
 
+/* ── Subtasks ────────────────────────────────────────── */
+
+.task-subtasks {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 0.82rem;
+}
+
+.subtask-item.subtask-done .subtask-title {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.subtask-check {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: transparent;
+  cursor: pointer;
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.subtask-check:hover {
+  border-color: var(--accent);
+  background: rgba(88,166,255,0.08);
+}
+
+.subtask-check[aria-pressed="true"] {
+  background: var(--done);
+  border-color: var(--done);
+  color: #0d1117;
+}
+
+.subtask-bullet {
+  color: var(--text-muted);
+  font-size: 0.6rem;
+  flex-shrink: 0;
+}
+
+.subtask-title {
+  flex: 1;
+  min-width: 0;
+  cursor: text;
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+.subtask-title:focus {
+  outline: none;
+  background: rgba(255,255,255,0.04);
+}
+
+.subtask-item .btn-remove-subtask {
+  opacity: 0;
+  padding: 2px 4px;
+  font-size: 0.75rem;
+}
+
+.subtask-item:hover .btn-remove-subtask { opacity: 1; }
+
+.btn-add-subtask {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 4px 0;
+  font-size: 0.78rem;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.btn-add-subtask:hover { color: var(--accent); }
+
 .task-actions { opacity: 0; transition: opacity 0.15s; }
 .task-item:hover .task-actions { opacity: 1; }
 
@@ -352,6 +441,20 @@ h1 { font-size: 1.6rem; margin-bottom: 4px; }
 .filter-btn[data-filter="deleted"] { color: #f85149; border-color: rgba(248,81,73,0.3); }
 .filter-btn[data-filter="deleted"]:hover { border-color: #f85149; }
 .filter-btn[data-filter="deleted"].active { border-color: #f85149; color: #f85149; background: rgba(248,81,73,0.1); }
+
+.btn-clear-deleted {
+  background: var(--surface);
+  border: 1px solid rgba(248,81,73,0.4);
+  color: #f85149;
+  padding: 4px 12px;
+  border-radius: 16px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.btn-clear-deleted:hover { background: rgba(248,81,73,0.1); border-color: #f85149; }
 
 /* ── Sort bar ────────────────────────────────────────── */
 

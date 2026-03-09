@@ -53,6 +53,13 @@ function today() { return new Date().toISOString().slice(0, 10); }
 
 function statusClass(s) { return s ? s.toLowerCase() : 'pending'; }
 
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 /* ── Data migration ──────────────────────────────────── */
 
 function migrateStatus(s) {
@@ -72,6 +79,12 @@ function migrateData(arr) {
       if (t.priority === undefined) t.priority = null;
       if (t.dueDate === undefined) t.dueDate = null;
       if (t.estimate === undefined) t.estimate = null;
+      if (!Array.isArray(t.subtasks)) t.subtasks = [];
+      t.subtasks = t.subtasks.map(s => {
+        const obj = typeof s === 'string' ? { title: s } : { title: s.title || '' };
+        obj.done = !!(s && s.done);
+        return obj;
+      });
     });
   });
   return arr;
@@ -239,6 +252,16 @@ function render() {
                 <span class="task-meta-label">Expectativa</span>
                 <input type="text" class="task-estimate-input" value="${t.estimate || ''}" placeholder="ex: 1h, 2h" data-ci="${ci}" data-ti="${realIdx}" onchange="updateEstimateFromInput(this)" title="Expectativa (vinculada ao peso)" />
               </div>
+              <div class="task-subtasks">
+                ${(t.subtasks || []).map((st, si) => `
+                  <div class="subtask-item ${st.done ? 'subtask-done' : ''}">
+                    <button type="button" class="subtask-check" onclick="toggleSubtaskDone(${ci}, ${realIdx}, ${si})" title="${st.done ? 'Desmarcar' : 'Concluída'}" aria-pressed="${st.done}">${st.done ? '&#10003;' : ''}</button>
+                    <span class="subtask-title" contenteditable="true" onblur="updateSubtaskTitle(${ci}, ${realIdx}, ${si}, this)">${escapeHtml(st.title)}</span>
+                    <button class="btn-icon btn-remove-subtask" onclick="removeSubtask(${ci}, ${realIdx}, ${si})" title="Remover subtask">&times;</button>
+                  </div>
+                `).join('')}
+                <button class="btn-add-subtask" onclick="addSubtask(${ci}, ${realIdx})">+ Subtask</button>
+              </div>
             </div>
             <div class="task-actions">
               ${t.status === 'DELETED' ? `<button class="btn-icon" style="color:var(--done)" onclick="restoreTask(${ci}, ${realIdx})" title="Restore">&#8629;</button>` : ''}
@@ -325,8 +348,54 @@ function updateEstimateFromInput(input) {
   renderReport();
 }
 
+function addSubtask(ci, ti) {
+  if (!data[ci].tasks[ti].subtasks) data[ci].tasks[ti].subtasks = [];
+  data[ci].tasks[ti].subtasks.push({ title: 'Nova subtask', done: false });
+  save();
+  render();
+  renderReport();
+}
+
+function removeSubtask(ci, ti, si) {
+  data[ci].tasks[ti].subtasks.splice(si, 1);
+  save();
+  render();
+  renderReport();
+}
+
+function updateSubtaskTitle(ci, ti, si, el) {
+  const title = el.textContent.trim();
+  if (si < data[ci].tasks[ti].subtasks.length) {
+    data[ci].tasks[ti].subtasks[si].title = title || 'Subtask';
+  }
+  save();
+  renderReport();
+}
+
+function toggleSubtaskDone(ci, ti, si) {
+  if (si >= data[ci].tasks[ti].subtasks.length) return;
+  data[ci].tasks[ti].subtasks[si].done = !data[ci].tasks[ti].subtasks[si].done;
+  save();
+  render();
+  renderReport();
+}
+
 function addTask(ci) {
-  data[ci].tasks.push({ title: 'New task', status: 'PENDING', detail: 'Describe status here...', createdAt: today(), doneAt: null, weight: null, priority: null, dueDate: null, estimate: null });
+  data[ci].tasks.push({ title: 'New task', status: 'PENDING', detail: 'Describe status here...', createdAt: today(), doneAt: null, weight: null, priority: null, dueDate: null, estimate: null, subtasks: [] });
+  save();
+  render();
+}
+
+function clearAllDeleted() {
+  let count = 0;
+  data.forEach(section => {
+    count += section.tasks.filter(t => t.status === 'DELETED').length;
+  });
+  if (count === 0) return;
+  if (!confirm(`Remover permanentemente ${count} task(s) em Deleted?`)) return;
+  data.forEach(section => {
+    section.tasks = section.tasks.filter(t => t.status !== 'DELETED');
+  });
   save();
   render();
 }
@@ -450,8 +519,9 @@ function renderReport() {
   data.forEach((section, ci) => {
     const activeTasks = section.tasks.filter(t => t.status !== 'DELETED');
     if (!activeTasks.length) return;
+    const sortedTasks = sortTasks(activeTasks);
     output += `${ci + 1}. ${section.client}\n`;
-    activeTasks.forEach((t, ti) => {
+    sortedTasks.forEach((t, ti) => {
       const priorityStr = t.priority ? ` [${t.priority}]` : '';
       const weightStr = t.weight ? ` (${t.weight})` : '';
       const dueStr = t.dueDate ? ` prazo ${fmtDate(t.dueDate)}` : '';
@@ -459,7 +529,12 @@ function renderReport() {
       output += `    ${letters[ti] || '?'}. [${t.status}]${priorityStr} ${t.title}${weightStr}${estStr}${dueStr}\n`;
       let statusLine = `        i. ${t.detail}`;
       if (t.doneAt) statusLine += ` (done ${fmtDate(t.doneAt)})`;
-      output += statusLine + '\n\n';
+      output += statusLine + '\n';
+      const subRoman = ['ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'];
+      (t.subtasks || []).forEach((st, si) => {
+        if (st.title) output += `        ${subRoman[si] || (si + 2) + '.'} ${st.done ? '[x] ' : ''}${st.title}\n`;
+      });
+      output += '\n';
     });
   });
 
