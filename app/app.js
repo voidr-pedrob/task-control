@@ -60,6 +60,11 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function toSubRoman(si) {
+  const roman = ['ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x', 'xi', 'xii', 'xiii', 'xiv', 'xv', 'xvi', 'xvii', 'xviii', 'xix', 'xx', 'xxi', 'xxii', 'xxiii', 'xxiv', 'xxv'];
+  return roman[si] || (si + 2) + '.';
+}
+
 /* ── Data migration ──────────────────────────────────── */
 
 function migrateStatus(s) {
@@ -265,6 +270,7 @@ function render() {
             </div>
             <div class="task-actions">
               ${t.status === 'DELETED' ? `<button class="btn-icon" style="color:var(--done)" onclick="restoreTask(${ci}, ${realIdx})" title="Restore">&#8629;</button>` : ''}
+              <button class="btn-icon" onclick="duplicateTask(${ci}, ${realIdx})" title="Duplicar (cópia com mesmos dados e subtasks)">&#128190;</button>
               <button class="btn-icon" onclick="removeTask(${ci}, ${realIdx})" title="Remove">&times;</button>
             </div>
           </div>`;
@@ -420,6 +426,28 @@ function restoreTask(ci, ti) {
   render();
 }
 
+/** Duplica a task: mesmo título, detail, weight, priority, dueDate, estimate e subtasks (subtasks ficam todas não concluídas). Nova task fica PENDING. */
+function duplicateTask(ci, ti) {
+  const src = data[ci].tasks[ti];
+  const newTask = {
+    title: (src.title || '').trim() || 'Nova task',
+    status: 'PENDING',
+    detail: src.detail || '',
+    createdAt: today(),
+    doneAt: null,
+    weight: src.weight ?? null,
+    priority: src.priority ?? null,
+    dueDate: src.dueDate ?? null,
+    estimate: src.estimate ?? null,
+    deletedAt: null,
+    subtasks: (src.subtasks || []).map(s => ({ title: s.title || '', done: false })),
+  };
+  data[ci].tasks.push(newTask);
+  save();
+  render();
+  renderReport();
+}
+
 /* ── Dropdown selector ───────────────────────────────── */
 
 function openDropdown(event, options) {
@@ -530,9 +558,8 @@ function renderReport() {
       let statusLine = `        i. ${t.detail}`;
       if (t.doneAt) statusLine += ` (done ${fmtDate(t.doneAt)})`;
       output += statusLine + '\n';
-      const subRoman = ['ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'];
       (t.subtasks || []).forEach((st, si) => {
-        if (st.title) output += `        ${subRoman[si] || (si + 2) + '.'} ${st.done ? '[x] ' : ''}${st.title}\n`;
+        if (st.title) output += `                ${toSubRoman(si)}. ${st.done ? '[x] ' : ''}${st.title}\n`;
       });
       output += '\n';
     });
